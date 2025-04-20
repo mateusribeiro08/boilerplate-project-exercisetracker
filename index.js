@@ -1,37 +1,39 @@
-const express = require('express')
-const app = express()
-const cors = require('cors')
-require('dotenv').config()
-const mongoose = require('mongoose');
-const { Schema } = mongoose;
+app.get('/api/users/:_id/logs', async (req, res) => {
+  const { from, to, limit } = req.query;
+  const id = req.params._id;
 
-mongoose.connect(process.env.DB_URL)
+  const user = await User.findById(id);
+  if (!user) {
+    return res.send("Could not find user");
+  }
 
-const userSchema = new Schema({
-  username: String,
+  let dateFilter = {};
+  if (from) dateFilter["$gte"] = new Date(from);
+  if (to) dateFilter["$lte"] = new Date(to);
+
+  let filter = { user_id: id };
+  if (from || to) {
+    filter.date = dateFilter;
+  }
+
+  let query = Exercise.find(filter);
+
+  if (limit) {
+    query = query.limit(parseInt(limit));
+  }
+
+  const exercises = await query.exec();
+
+  const log = exercises.map(e => ({
+    description: e.description,
+    duration: e.duration,
+    date: e.date.toDateString()
+  }));
+
+  res.json({
+    _id: user._id,
+    username: user.username,
+    count: exercises.length,
+    log
+  });
 });
-const user = mongoose.model("user", userSchema); 
-
-const exerciseSchema = new Schema({
-  user_id: {type: String, required: true},
-  description: String,
-  duration: Number,
-  date: Date,
-});
-const exercise = mongoose.model("exercise", exerciseSchema);
-
-app.use(cors())
-app.use(express.static('public'))
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/views/index.html')
-});
-
-app.post('/api/users', (req, res) => {
-  
-})
-
-
-
-const listener = app.listen(process.env.PORT || 3000, () => {
-  console.log('Your app is listening on port ' + listener.address().port)
-})
